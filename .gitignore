@@ -1,0 +1,11 @@
+# Never commit your API key
+api_key.txt
+
+# Python
+__pycache__/
+*.pyc
+
+# PyInstaller build artifacts
+build/
+dist/
+*.spec

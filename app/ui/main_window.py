@@ -208,8 +208,8 @@ class MainWindow(QWidget):
         self.resume_pill = QLabel("No resume loaded")
         self.resume_pill.setObjectName("pill")
         head.addWidget(self.resume_pill)
-        load = QPushButton("Load resume…")
-        load.clicked.connect(self._load_resume)
+        load = QPushButton("Resume (paste)…")
+        load.clicked.connect(self._edit_resume)
         head.addWidget(load)
         lay.addLayout(head)
 
@@ -282,8 +282,8 @@ class MainWindow(QWidget):
 
         sub = QLabel(
             "The app plays the interviewer: it asks you a question, you answer "
-            "(type or speak), and it coaches you. Load your resume on the Practice "
-            "page for tailored questions."
+            "(type or speak), and it coaches you. Paste your resume text on the "
+            "Practice page (Resume button) for tailored questions."
         )
         sub.setObjectName("muted")
         sub.setWordWrap(True)
@@ -521,25 +521,55 @@ class MainWindow(QWidget):
         worker.start()
 
     # ---------------------------------------------------------------- resume
-    def _load_resume(self):
-        from PySide6.QtWidgets import QFileDialog
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Choose your resume", "",
-            "Resume (*.pdf *.docx *.txt *.md);;All files (*.*)",
+    def _edit_resume(self):
+        """Paste resume text directly - no file reading."""
+        from PySide6.QtWidgets import QDialog
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Resume context")
+        dlg.setMinimumSize(560, 460)
+        v = QVBoxLayout(dlg)
+        info = QLabel(
+            "Paste your resume / background text here. It stays loaded for this "
+            "session and personalises practice help and mock-interview questions."
         )
-        if not path:
-            return
-        try:
-            text = resume.read_resume(path)
-        except Exception as exc:  # noqa: BLE001
-            QMessageBox.warning(self, "Could not read resume", str(exc))
-            return
-        self.resume_text = text
-        import os
-        self.resume_name = os.path.basename(path)
-        self.resume_pill.setText(f"Resume: {self.resume_name}")
-        self.use_resume_practice.setChecked(True)
-        self.status.setText(f"Loaded resume ({len(text)} chars).")
+        info.setObjectName("muted")
+        info.setWordWrap(True)
+        v.addWidget(info)
+
+        box = QTextEdit()
+        box.setPlaceholderText("Paste your resume text here…")
+        box.setPlainText(self.resume_text)
+        v.addWidget(box, 1)
+
+        row = QHBoxLayout()
+        clear = QPushButton("Clear")
+        clear.clicked.connect(box.clear)
+        row.addWidget(clear)
+        row.addStretch(1)
+        cancel = QPushButton("Cancel")
+        cancel.clicked.connect(dlg.reject)
+        save = QPushButton("Save")
+        save.setObjectName("accent")
+        save.clicked.connect(dlg.accept)
+        row.addWidget(cancel)
+        row.addWidget(save)
+        v.addLayout(row)
+
+        if dlg.exec():
+            self.resume_text = box.toPlainText().strip()
+            self._update_resume_pill()
+            if self.resume_text:
+                self.use_resume_practice.setChecked(True)
+                self.status.setText(f"Resume saved ({len(self.resume_text)} chars).")
+            else:
+                self.status.setText("Resume cleared.")
+
+    def _update_resume_pill(self):
+        if self.resume_text:
+            self.resume_pill.setText(f"Resume: {len(self.resume_text)} chars")
+        else:
+            self.resume_pill.setText("No resume")
 
     # --------------------------------------------------------------- practice
     def _start_region_capture(self):
